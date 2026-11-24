@@ -97,21 +97,42 @@ module.exports = async (req, res) => {
   const timer = setTimeout(() => controller.abort(), 25000);
 
   try {
-    const r = await fetch(`${ENDPOINT}${encodeURIComponent(MODEL)}:generateContent`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemText }] },
-        contents,
-        generationConfig: { temperature: 0.3, maxOutputTokens: 700 }
-      }),
-      signal: controller.signal
-    });
+    // withSystem=true: pakai system_instruction (model Gemini).
+    // withSystem=false: aturan bot digabung ke pesan pertama (model Gemma tidak mendukung system_instruction).
+    const send = (withSystem) => {
+      const payload = { generationConfig: { temperature: 0.3, maxOutputTokens: 700 } };
+      if (withSystem) {
+        payload.system_instruction = { parts: [{ text: systemText }] };
+        payload.contents = contents;
+      } else {
+        payload.contents = contents.map((c, i) =>
+          i === 0
+            ? { role: c.role, parts: [{ text: "[ATURAN SISTEM, WAJIB DIIKUTI]\n" + systemText + "\n\n[PESAN SISWA]\n" + c.parts[0].text }] }
+            : c
+        );
+      }
+      return fetch(`${ENDPOINT}${encodeURIComponent(MODEL)}:generateContent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+    };
+
+    let r = await send(!/gemma/i.test(MODEL));
+    let errText = "";
+    if (!r.ok) {
+      errText = await r.text();
+      if (r.status === 400 && /developer instruction|system instruction/i.test(errText)) {
+        r = await send(false); // coba ulang tanpa system_instruction
+        errText = r.ok ? "" : await r.text();
+      }
+    }
 
     if (!r.ok) {
       const status = r.status;
       // Detail kesalahan hanya dicatat di log Vercel, tidak dikirim ke pengunjung.
-      console.error("Gemini error", status, (await r.text()).slice(0, 500));
+      console.error("Gemini error", status, errText.slice(0, 500));
       if (status === 429) {
         res.status(503).json({ error: "Kuota Kak Relay sedang habis. Coba lagi beberapa menit lagi atau tanyakan ke guru." });
       } else {
