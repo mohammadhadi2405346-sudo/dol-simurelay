@@ -9,6 +9,8 @@ const FALLBACKS = (process.env.GEMINI_FALLBACK_MODELS || "gemini-3.5-flash,gemin
   .split(",").map((m) => m.trim()).filter(Boolean);
 const MODELS = [MODEL].concat(FALLBACKS.filter((m) => m !== MODEL));
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/";
+// Model "berpikir" menghitung token berpikir di dalam batas ini; batas kecil membuat jawaban terpotong.
+const MAX_OUT = parseInt(process.env.GEMINI_MAX_TOKENS || "2500", 10) || 2500;
 
 const MAX_MESSAGES = 12;      // riwayat terakhir yang dikirim ke model
 const MAX_CHARS = 1000;       // panjang maksimal tiap pesan siswa
@@ -105,7 +107,7 @@ module.exports = async (req, res) => {
     // withSystem=true: pakai system_instruction (model Gemini).
     // withSystem=false: aturan bot digabung ke pesan pertama (model Gemma tidak mendukung system_instruction).
     const send = (model, withSystem) => {
-      const payload = { generationConfig: { temperature: 0.3, maxOutputTokens: 700 } };
+      const payload = { generationConfig: { temperature: 0.3, maxOutputTokens: MAX_OUT } };
       if (withSystem) {
         payload.system_instruction = { parts: [{ text: systemText }] };
         payload.contents = contents;
