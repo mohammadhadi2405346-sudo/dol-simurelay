@@ -162,10 +162,20 @@
       log.scrollTop = log.scrollHeight;
       return d;
     }
+    var CHIPS = ["Apa fungsi pengunci (kontak 13-14)?", "Motorku hanya hidup kalau S3 kutahan", "Kapan lampu H3 menyala?"];
     function reset() {
       history = [];
       log.innerHTML = "";
       add("model", OPENING);
+      var row = document.createElement("div");
+      row.className = "chips";
+      CHIPS.forEach(function (c) {
+        var b = document.createElement("button");
+        b.type = "button"; b.className = "chip"; b.textContent = c;
+        b.addEventListener("click", function () { row.remove(); input.value = c; form.requestSubmit(); });
+        row.appendChild(b);
+      });
+      log.appendChild(row);
     }
     reset();
 
@@ -182,7 +192,12 @@
       add("user", text);
       history.push({ role: "user", text: text });
       send.disabled = true;
-      var wait = add("model", "Kak Relay sedang mengetik…", "typing");
+      var wait = add("model", "", "typing");
+      wait.innerHTML = '<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="wait-txt">Kak Relay sedang menyusun jawaban</span>';
+      var slow = setTimeout(function () {
+        var t = wait.querySelector(".wait-txt");
+        if (t) t.textContent = "Masih menyusun jawaban, biasanya 5 sampai 15 detik. Mohon tunggu";
+      }, 8000);
 
       fetch(api, {
         method: "POST",
@@ -193,6 +208,7 @@
           return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; });
         })
         .then(function (x) {
+          clearTimeout(slow);
           wait.remove();
           if (!x.ok || !x.j.reply) {
             history.pop();
@@ -204,6 +220,7 @@
           if (x.j.piiRemoved) add("model", "Catatan: aku menghapus data pribadi dari pesanmu. Cukup kirim kode komponen dan gejalanya ya.", "err");
         })
         .catch(function () {
+          clearTimeout(slow);
           wait.remove();
           history.pop();
           add("model", "Tidak ada koneksi ke Kak Relay. Periksa internetmu lalu coba lagi.", "err");
