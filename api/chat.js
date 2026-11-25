@@ -2,10 +2,10 @@
 // API key TIDAK ada di kode ini. Key dibaca dari Environment Variable Vercel: GEMINI_API_KEY.
 const { SYSTEM, KB } = require("./_kb");
 
-const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
 // Jika model utama sedang sibuk (503), kuota habis (429), atau tidak ditemukan (404), coba model cadangan berikut.
 // Bisa diubah lewat variabel Vercel GEMINI_FALLBACK_MODELS (dipisah koma).
-const FALLBACKS = (process.env.GEMINI_FALLBACK_MODELS || "gemini-2.5-flash,gemini-2.5-flash-lite")
+const FALLBACKS = (process.env.GEMINI_FALLBACK_MODELS || "gemini-3.5-flash,gemini-3.5-flash-lite,gemini-3.1-flash-lite")
   .split(",").map((m) => m.trim()).filter(Boolean);
 const MODELS = [MODEL].concat(FALLBACKS.filter((m) => m !== MODEL));
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/";
