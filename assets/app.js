@@ -106,6 +106,42 @@
   /* ---------- Chatbot ---------- */
   var OPENING = "Halo, aku Kak Relay, pendamping belajar DOL kamu. Aku tidak memberi jawaban langsung, tapi aku akan menuntunmu menemukannya sendiri. Jangan kirim data pribadi ya. Kamu lagi di bagian mana: teori, merangkai di Simurelay, atau rangkaianmu belum jalan?";
 
+  /* ---------- Penampil teks bot (format sederhana, aman: tanpa innerHTML) ---------- */
+  function inlineFmt(parent, s) {
+    var re = /(\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\s][^*\n]*\*|`[^`\n]+`)/g, last = 0, m, el, t;
+    while ((m = re.exec(s))) {
+      if (m.index > last) parent.appendChild(document.createTextNode(s.slice(last, m.index)));
+      t = m[0];
+      if (t.indexOf("**") === 0 || t.indexOf("__") === 0) { el = document.createElement("strong"); el.textContent = t.slice(2, -2); }
+      else if (t.charAt(0) === "`") { el = document.createElement("code"); el.textContent = t.slice(1, -1); }
+      else { el = document.createElement("em"); el.textContent = t.slice(1, -1); }
+      parent.appendChild(el);
+      last = m.index + t.length;
+    }
+    if (last < s.length) parent.appendChild(document.createTextNode(s.slice(last)));
+  }
+  function richText(box, text) {
+    box.classList.add("rich");
+    var list = null, para = null;
+    text.replace(/\r/g, "").split("\n").forEach(function (ln) {
+      var b = ln.match(/^\s*[-*•]\s+(.+)$/), n = ln.match(/^\s*\d+[.)]\s+(.+)$/);
+      if (b || n) {
+        var tag = n ? "OL" : "UL";
+        if (!list || list.tagName !== tag) { list = document.createElement(tag); box.appendChild(list); }
+        var li = document.createElement("li");
+        inlineFmt(li, (n || b)[1]);
+        list.appendChild(li);
+        para = null;
+        return;
+      }
+      list = null;
+      if (!ln.trim()) { para = null; return; }
+      if (!para) { para = document.createElement("p"); box.appendChild(para); }
+      else para.appendChild(document.createElement("br"));
+      inlineFmt(para, ln.trim());
+    });
+  }
+
   function chatUI(box, api, nama) {
     var history = [];
     box.innerHTML =
@@ -121,7 +157,7 @@
     function add(role, text, cls) {
       var d = document.createElement("div");
       d.className = "msg " + (role === "user" ? "me" : "bot") + (cls ? " " + cls : "");
-      d.textContent = text;
+      if (role !== "user" && !cls) richText(d, text); else d.textContent = text;
       log.appendChild(d);
       log.scrollTop = log.scrollHeight;
       return d;
