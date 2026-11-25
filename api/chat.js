@@ -3,6 +3,11 @@
 const { SYSTEM, KB } = require("./_kb");
 
 const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+// Jika model utama sedang sibuk (503), kuota habis (429), atau tidak ditemukan (404), coba model cadangan berikut.
+// Bisa diubah lewat variabel Vercel GEMINI_FALLBACK_MODELS (dipisah koma).
+const FALLBACKS = (process.env.GEMINI_FALLBACK_MODELS || "gemini-2.5-flash,gemini-2.5-flash-lite")
+  .split(",").map((m) => m.trim()).filter(Boolean);
+const MODELS = [MODEL].concat(FALLBACKS.filter((m) => m !== MODEL));
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/";
 
 const MAX_MESSAGES = 12;      // riwayat terakhir yang dikirim ke model
@@ -99,7 +104,7 @@ module.exports = async (req, res) => {
   try {
     // withSystem=true: pakai system_instruction (model Gemini).
     // withSystem=false: aturan bot digabung ke pesan pertama (model Gemma tidak mendukung system_instruction).
-    const send = (withSystem) => {
+    const send = (model, withSystem) => {
       const payload = { generationConfig: { temperature: 0.3, maxOutputTokens: 700 } };
       if (withSystem) {
         payload.system_instruction = { parts: [{ text: systemText }] };
@@ -111,7 +116,7 @@ module.exports = async (req, res) => {
             : c
         );
       }
-      return fetch(`${ENDPOINT}${encodeURIComponent(MODEL)}:generateContent`, {
+      return fetch(`${ENDPOINT}${encodeURIComponent(model)}:generateContent`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
         body: JSON.stringify(payload),
@@ -119,22 +124,33 @@ module.exports = async (req, res) => {
       });
     };
 
-    let r = await send(!/gemma/i.test(MODEL));
-    let errText = "";
-    if (!r.ok) {
-      errText = await r.text();
-      if (r.status === 400 && /developer instruction|system instruction/i.test(errText)) {
-        r = await send(false); // coba ulang tanpa system_instruction
-        errText = r.ok ? "" : await r.text();
+    async function tryModel(model) {
+      let resp = await send(model, !/gemma/i.test(model));
+      let text = "";
+      if (!resp.ok) {
+        text = await resp.text();
+        if (resp.status === 400 && /developer instruction|system instruction/i.test(text)) {
+          resp = await send(model, false); // coba ulang tanpa system_instruction
+          text = resp.ok ? "" : await resp.text();
+        }
       }
+      return { resp, text };
+    }
+
+    let r, errText = "";
+    for (const m of MODELS) {
+      ({ resp: r, text: errText } = await tryModel(m));
+      if (r.ok) break;
+      // Detail kesalahan hanya dicatat di log Vercel, tidak dikirim ke pengunjung.
+      console.error("Gemini error", r.status, "model:", m, errText.slice(0, 400));
+      const retryable = [404, 429, 500, 502, 503, 504].includes(r.status) ||
+        (r.status === 400 && /not supported|not found|not enabled|model/i.test(errText));
+      if (!retryable) break;
     }
 
     if (!r.ok) {
-      const status = r.status;
-      // Detail kesalahan hanya dicatat di log Vercel, tidak dikirim ke pengunjung.
-      console.error("Gemini error", status, errText.slice(0, 500));
-      if (status === 429) {
-        res.status(503).json({ error: "Kuota Kak Relay sedang habis. Coba lagi beberapa menit lagi atau tanyakan ke guru." });
+      if (r.status === 429 || r.status === 503) {
+        res.status(503).json({ error: "Kak Relay sedang ramai atau kuotanya habis. Coba lagi beberapa menit lagi atau tanyakan ke guru." });
       } else {
         res.status(502).json({ error: "Kak Relay sedang bermasalah. Coba lagi sebentar." });
       }
