@@ -25,7 +25,7 @@ window.SITE = {
   microsoftStore: "https://apps.microsoft.com/search?query=simurelay",
 
   // 4) Formulir uji coba / evaluasi (Google Form). Kosongkan jika belum ada.
-  formUji: "",
+  formUji: "https://docs.google.com/forms/d/e/1FAIpQLSehVcPUohbaf0_2yw1EraI8I5xruKMEYlEJ90JPJsuPy74z5g/viewform",
   kontakGuru: "", // mis. alamat email sekolah/dosen pengampu (bukan data pribadi siswa)
 
   // 5) Video YouTube — periksa ulang ID dengan PDF asli sebelum publikasi.
