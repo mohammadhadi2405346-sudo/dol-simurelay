@@ -94,3 +94,11 @@ footer{border-top:1px solid var(--line);padding:18px 0;color:var(--muted);font-s
 .chat-form textarea{width:100%;resize:none;font:inherit;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
 .chat-actions{display:flex;justify-content:space-between;gap:8px}
 .chat-actions .btn[disabled]{opacity:.5;cursor:wait}
+
+/* Teks bot yang diformat */
+.msg.rich{white-space:normal}
+.msg.rich p{margin:0 0 .6em}
+.msg.rich ul,.msg.rich ol{margin:.2em 0 .6em;padding-left:1.3em}
+.msg.rich li{margin:.15em 0}
+.msg.rich > :last-child{margin-bottom:0}
+.msg.rich code{font-family:ui-monospace,Consolas,monospace;font-size:.92em;background:var(--line);padding:1px 5px;border-radius:5px}
